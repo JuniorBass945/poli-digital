@@ -138,7 +138,7 @@ export default function Estudiantes() {
             {visibles.slice(0, limite).map((f) => {
               const aula = f.aulaId ? aulaPorId.get(f.aulaId) : undefined;
               return (
-                <tr key={f.id} className="border-b border-line last:border-0">
+                <tr key={f.id} className="h-15 border-b border-line last:border-0">
                   <td className="px-4 py-2.5">
                     <div className="font-medium">
                       {f.apellidos}, {f.nombres}
@@ -160,7 +160,7 @@ export default function Estudiantes() {
                     {f.activo ? <Chip tono="ok">Activo</Chip> : <Chip tono="warn">Baja: {etiquetaMotivo(f.bajaMotivo)}</Chip>}
                   </td>
                   <td className="px-3 text-right">
-                    <div className="inline-flex gap-1.5">
+                    <div className="inline-flex gap-2.5">
                       <Btn variante="ghost" aria-label={`Editar a ${f.nombres} ${f.apellidos}`} onClick={() => setDialogo({ tipo: 'editar', fila: f })}>
                         <Pencil size={14} />
                         Editar

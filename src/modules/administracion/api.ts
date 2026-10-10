@@ -9,6 +9,9 @@ interface ErrorDb {
 /** Convierte los errores de la base de datos en mensajes claros para la persona. */
 export function traducirError(e: ErrorDb): Error {
   if (e.code === '23505' && /matricula/i.test(e.message)) return new Error('Ya existe un estudiante con esa matrícula.');
+  if (e.code === '23505' && /docentes_correo/i.test(e.message)) return new Error('Ya hay un docente con ese correo.');
+  if (e.code === '23505' && /materias/i.test(e.message)) return new Error('Ya existe una materia con ese nombre.');
+  if (e.code === '23505' && /aulas_unica/i.test(e.message)) return new Error('Ya existe un aula con ese grado, sección y especialidad en el año actual.');
   if (e.code === '23505') return new Error('Ese registro ya existe.');
   if (e.code === '42501') return new Error('No tienes permiso para hacer esto.');
   if (e.code === '22023' || e.code === 'P0001') return new Error(e.message);
