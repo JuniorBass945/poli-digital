@@ -50,6 +50,7 @@ definido para el sistema ni dominio propio**.
   Tablas `asistencia_sesiones`, `asistencias` y `mensajes` (cola de avisos con canal intercambiable: hoy `whatsapp_enlace`, luego `whatsapp_api`).
   Escritura solo con las funciones `guardar_asistencia` y `gestionar_aviso` (security definer, comprueban rol, clase y fecha); el cliente solo lee.
   Módulos `src/modules/asistencia` y `src/modules/avisos`; ayudas en `src/lib` (`claseTrabajo`, `fechas`, `whatsapp`).
+  Avisos incluye el **envío seguido** (`EnvioSeguido.tsx`): recorre los pendientes con enlace de WhatsApp; el envío masivo real queda para la API (R2).
   **Supuestos que hay que confirmar con el centro:** un aviso por estudiante y día; lo envía el docente que pasó lista; el docente corrige hasta 3 días atrás;
   tardanza y excusa no generan aviso; el consentimiento de WhatsApp aún no se exige (será obligatorio en R2).
 - Usuarios de prueba (contraseña de desarrollo definida por el usuario): `admin@`, `direccion@`, `coordinacion@`, `docente@`, `orientacion@`, `tutor@` + `polidemo.test`.

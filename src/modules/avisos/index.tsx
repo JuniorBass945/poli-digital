@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, MessageCircle, RotateCcw, Search } from 'lucide-react';
+import { Ban, ListChecks, MessageCircle, RotateCcw, Search } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { enlaceWhatsapp } from '../../lib/whatsapp';
 import { formatoCorto } from '../../lib/fechas';
 import { Aviso as Alerta, Btn, Campo, Card, Chip, Modal, PageHeader, inputCls } from '../../ui';
 import { gestionarAviso, listarAvisos, type Aviso, type EstadoAviso } from './api';
+import EnvioSeguido from './EnvioSeguido';
 
 const sinTildes = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -31,6 +32,7 @@ export default function Avisos() {
   const [busqueda, setBusqueda] = useState('');
   const [omitiendo, setOmitiendo] = useState<Aviso | null>(null);
   const [notaOmitir, setNotaOmitir] = useState('');
+  const [cola, setCola] = useState<Aviso[] | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -49,6 +51,9 @@ export default function Avisos() {
     for (const a of avisos) c[a.estado] = (c[a.estado] ?? 0) + 1;
     return c;
   }, [avisos]);
+
+  // Pendientes que se pueden enviar (tienen un teléfono válido), para el envío seguido.
+  const enviables = useMemo(() => avisos.filter((a) => a.estado === 'pendiente' && enlaceWhatsapp(a.tutor?.telefono, a.texto)), [avisos]);
 
   const visibles = useMemo(() => {
     const q = sinTildes(busqueda.trim());
@@ -94,6 +99,12 @@ export default function Avisos() {
             <input className={`${inputCls} pl-9`} placeholder="Estudiante o tutor" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           </div>
         </Campo>
+        {puedeGestionar && enviables.length > 0 && (
+          <Btn className="ml-auto" onClick={() => setCola(enviables)} title="Recorre los avisos pendientes uno tras otro, sin buscarlos">
+            <ListChecks size={16} />
+            Enviar todos los pendientes ({enviables.length})
+          </Btn>
+        )}
       </div>
 
       {mensaje && <div className="mb-3"><Alerta tono="ok">{mensaje}</Alerta></div>}
@@ -165,6 +176,14 @@ export default function Avisos() {
             );
           })}
         </div>
+      )}
+
+      {cola && (
+        <EnvioSeguido
+          cola={cola}
+          onEnviado={(id) => gestionarAviso(id, 'enviado')}
+          onClose={() => { setCola(null); setMensaje(null); void cargar(); }}
+        />
       )}
 
       {omitiendo && (

@@ -151,6 +151,66 @@ describe('Avisos a tutores', () => {
     expect(el.textContent).toContain('No tienes permiso para gestionar este aviso.');
   });
 
+  describe('envío seguido', () => {
+    beforeEach(() => {
+      mock.datos = [
+        aviso('1', 'pendiente', 'Ana', 'Uno', '809-555-0001'),
+        aviso('2', 'pendiente', 'Beto', 'Dos', null),
+        aviso('6', 'pendiente', 'Fran', 'Seis', '829-555-0006'),
+        aviso('3', 'enviado', 'Carla', 'Tres', '809-555-0003'),
+      ];
+    });
+
+    it('ofrece enviar todos los pendientes que tienen teléfono', async () => {
+      const el = await montar();
+      expect(porTexto('button', 'Enviar todos los pendientes (2)', el)).toBeDefined(); // Beto no tiene teléfono
+    });
+
+    it('recorre los avisos uno tras otro, marcando cada uno como enviado', async () => {
+      const el = await montar();
+      await click(porTexto('button', 'Enviar todos los pendientes', el));
+      const dialogo = () => document.querySelector('[role=dialog]')!;
+      expect(dialogo().textContent).toContain('Aviso 1 de 2');
+      expect(dialogo().textContent).toContain('Uno, Ana');
+      const abrir = () => q('[role=dialog] a').find((a) => a.textContent?.includes('Abrir WhatsApp')) as HTMLAnchorElement;
+      expect(abrir().href).toContain('https://wa.me/18095550001?text=');
+      expect(abrir().target).toBe('_blank');
+      await click(abrir());
+      await esperar();
+      expect(mock.rpc).toHaveBeenCalledWith('gestionar_aviso', { p_id: '1', p_estado: 'enviado', p_nota: null });
+      expect(dialogo().textContent).toContain('Aviso 2 de 2');
+      expect(dialogo().textContent).toContain('Seis, Fran');
+      expect(abrir().href).toContain('https://wa.me/18295550006?text=');
+      await click(porTexto('button', 'Saltar este aviso', dialogo() as HTMLElement));
+      expect(dialogo().textContent).toContain('1 aviso marcado como enviado y 1 saltado (siguen pendientes)');
+      expect(mock.rpc).toHaveBeenCalledTimes(1);
+      await click(porTexto('button', 'Cerrar', dialogo() as HTMLElement));
+      expect(document.querySelector('[role=dialog]')).toBeNull();
+    });
+
+    it('si falla el envío de un aviso, se queda en ese y muestra el error', async () => {
+      mock.rpc.mockResolvedValue({ data: null, error: { code: '22023', message: 'Este aviso fue cancelado porque el estudiante ya no figura ausente.' } });
+      const el = await montar();
+      await click(porTexto('button', 'Enviar todos los pendientes', el));
+      await click(q('[role=dialog] a').find((a) => a.textContent?.includes('Abrir WhatsApp')));
+      await esperar();
+      expect(document.querySelector('[role=dialog]')?.textContent).toContain('Aviso 1 de 2');
+      expect(document.querySelector('[role=dialog]')?.textContent).toContain('ya no figura ausente');
+    });
+
+    it('orientación no ve la opción de envío seguido', async () => {
+      mock.rol = 'orientacion';
+      const el = await montar();
+      expect(porTexto('button', 'Enviar todos los pendientes', el)).toBeUndefined();
+    });
+
+    it('no aparece si ningún pendiente tiene teléfono', async () => {
+      mock.datos = [aviso('2', 'pendiente', 'Beto', 'Dos', null)];
+      const el = await montar();
+      expect(porTexto('button', 'Enviar todos los pendientes', el)).toBeUndefined();
+    });
+  });
+
   it('explica cuándo no hay avisos', async () => {
     mock.datos = [];
     const el = await montar();

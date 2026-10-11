@@ -12,6 +12,7 @@
 - **Enviar por WhatsApp** abre WhatsApp con el número del tutor y el mensaje ya escrito, y marca el aviso como enviado. Si no se envió, **Volver a pendiente**.
 - **Omitir** (con una nota opcional) cuando no hace falta avisar.
 - Sin teléfono válido, el botón de enviar queda desactivado.
+- **Enviar todos los pendientes (envío seguido):** botón arriba de la lista. Recorre los avisos pendientes con teléfono uno tras otro: cada clic en *Abrir WhatsApp y pasar al siguiente* abre el chat con el mensaje escrito, marca el aviso como enviado y muestra el siguiente. Se puede **saltar** un aviso (sigue pendiente). **WhatsApp exige pulsar *Enviar* en cada chat y el navegador no deja abrir varias ventanas a la vez**, así que este modo acelera el trabajo pero no lo hace automático: el envío masivo real llega con la API (R2).
 
 ## Reglas
 - Un **docente** solo pasa lista en **sus** clases y de **hoy hasta 3 días atrás**. **Coordinación** y administración pueden cualquier clase y fecha. No se admiten fechas futuras.
@@ -45,6 +46,7 @@ Entra con `docente@polidemo.test` (Prof. Carmen Peña):
 - [ ] Cambia un ausente a presente y guarda de nuevo: ese aviso se cancela.
 - [ ] En Avisos a tutores, pestaña Pendientes: aparecen los avisos. **Enviar por WhatsApp** abre el chat con el mensaje escrito; el aviso pasa a Enviados.
 - [ ] Un aviso enviado: **Volver a pendiente**. Otro: **Omitir** con una nota.
+- [ ] Con 3 o más avisos pendientes, pulsa **Enviar todos los pendientes**: se abre el recorrido ("Aviso 1 de N"). Prueba *Abrir WhatsApp y pasar al siguiente*, *Saltar este aviso* y cierra al final; los saltados siguen en Pendientes.
 - [ ] Prueba una fecha de hace 4 días: el sistema no deja (3 días máximo).
 Entra con `coordinacion@polidemo.test`:
 - [ ] Ve las clases de todos los docentes (con el nombre del docente) y puede elegir fechas anteriores.
