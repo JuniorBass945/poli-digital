@@ -4,6 +4,7 @@ import Asignaciones from './Asignaciones';
 import Aulas from './Aulas';
 import Docentes from './Docentes';
 import Estudiantes from './Estudiantes';
+import Importar from './Importar';
 import Materias from './Materias';
 
 // R1 · Administración. Parte 1: Estudiantes. Parte 2: docentes, materias, aulas y asignaciones.
@@ -18,6 +19,7 @@ export default function Administracion() {
         onChange={setTab}
         tabs={[
           { id: 'estudiantes', etiqueta: 'Estudiantes' },
+          { id: 'importar', etiqueta: 'Importar Excel' },
           { id: 'docentes', etiqueta: 'Docentes' },
           { id: 'materias', etiqueta: 'Materias' },
           { id: 'aulas', etiqueta: 'Aulas' },
@@ -26,6 +28,7 @@ export default function Administracion() {
         ]}
       />
       {tab === 'estudiantes' && <Estudiantes />}
+      {tab === 'importar' && <Importar />}
       {tab === 'docentes' && <Docentes />}
       {tab === 'materias' && <Materias />}
       {tab === 'aulas' && <Aulas />}

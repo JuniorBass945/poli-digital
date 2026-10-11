@@ -89,10 +89,13 @@ describe('shell de la aplicación', () => {
   });
 
   it('abrir un módulo pendiente muestra su marcador', async () => {
+    // Asistencia y avisos ya existen; se usa Calificaciones (R3), que sigue pendiente.
     estado.rol = 'docente';
-    window.location.hash = '/asistencia';
+    estado.modulos = ['asistencia', 'avisos', 'administracion', 'calificaciones'];
+    window.location.hash = '/calificaciones';
     const { el } = await montar();
+    estado.modulos = ['asistencia', 'avisos', 'administracion'];
     expect(el.textContent).toContain('En construcción');
-    expect(el.textContent).toContain('R1');
+    expect(el.textContent).toContain('R3');
   });
 });
