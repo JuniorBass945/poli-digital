@@ -1,3 +1,4 @@
+import { validarPartes, type PartesNombre } from './partesNombre';
 import { ROL_ETIQUETA, ordenarRoles, type Rol } from '../../lib/roles';
 
 export type EstadoAcceso = 'activo' | 'pendiente' | 'vencida' | 'sin_acceso';
@@ -5,6 +6,10 @@ export type EstadoAcceso = 'activo' | 'pendiente' | 'vencida' | 'sin_acceso';
 export interface Acceso {
   id: string;
   nombre: string;
+  titulo: string | null;
+  nombres: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
   usuario: string | null;
   correo: string | null;
   activo: boolean;
@@ -31,7 +36,7 @@ export const ESTADO_TONO: Record<EstadoAcceso, 'ok' | 'warn' | 'bad' | 'neutral'
 
 /** Datos del formulario de un acceso nuevo. */
 export interface BorradorAcceso {
-  nombre: string;
+  partes: PartesNombre;
   usuario: string;
   roles: Rol[];
   /** 'nuevo' = crear el registro de docente; un id = vincular ese docente; '' = sin elegir. */
@@ -40,7 +45,7 @@ export interface BorradorAcceso {
 
 export function validarBorradorAcceso(b: BorradorAcceso, usuarioFormatoOk: (u: string) => string | null): Record<string, string> {
   const e: Record<string, string> = {};
-  if (!b.nombre.trim()) e.nombre = 'Escribe el nombre de la persona.';
+  Object.assign(e, validarPartes(b.partes));
   const pu = usuarioFormatoOk(b.usuario);
   if (pu) e.usuario = pu;
   const r = validarRoles(b.roles, b.docente);

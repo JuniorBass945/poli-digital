@@ -7,6 +7,7 @@ const mock = vi.hoisted(() => ({
   rpc: vi.fn(),
   invocar: vi.fn(),
   datos: {} as Record<string, unknown[]>,
+  parecidos: [] as unknown[],
 }));
 
 vi.mock('../../auth/AuthProvider', () => ({ useAuth: () => ({ perfil: { id: 'yo', rol: 'admin', roles: ['admin'], nombre: 'Admin' } }) }));
@@ -26,7 +27,7 @@ import Accesos from './Accesos';
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
 const fila = (o: Record<string, unknown>) => ({
-  id: 'x', nombre: 'X', usuario: 'x', correo: null, activo: true, roles: ['docente'], docente_id: null,
+  id: 'x', nombre: 'X', titulo: null, nombres: null, apellido1: null, apellido2: null, usuario: 'x', correo: null, activo: true, roles: ['docente'], docente_id: null,
   estado: 'activo', clave_vence: null, ultimo_ingreso: null, ...o,
 });
 
@@ -44,6 +45,12 @@ const campo = (etiqueta: string) => {
   if (!l) throw new Error(`no se encontró el campo "${etiqueta}"`);
   return l.querySelector('input,select')!;
 };
+const nombre = async (nombres: string, ap1: string, ap2 = '') => {
+  await escribir(campo('Nombre(s)'), nombres);
+  await escribir(campo('1.er apellido'), ap1);
+  if (ap2) await escribir(campo('2.º apellido'), ap2);
+};
+const salir = async (n: Element) => { await act(async () => { n.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); }); await esperar(); };
 const botonDialogo = (texto: string) => q('[role=dialog] button').find((b) => b.textContent === texto) as HTMLButtonElement;
 const interruptor = (rol: string) => q('[role=dialog] [role=switch]').find((b) => b.textContent?.startsWith(rol)) as HTMLElement;
 
@@ -58,6 +65,7 @@ async function abrir() {
 beforeEach(() => {
   mock.rpc.mockReset();
   mock.invocar.mockReset();
+  mock.parecidos = [];
   mock.datos = {
     docentes: [
       { id: 'd1', nombre: 'Prof. Libre', correo: null, activo: true, baja_motivo: null, baja_nota: null, perfil_id: null },
@@ -76,7 +84,8 @@ beforeEach(() => {
         error: null,
       });
     }
-    if (nombre === 'sugerir_usuario') return Promise.resolve({ data: 'ana', error: null });
+    if (nombre === 'sugerir_usuario_partes') return Promise.resolve({ data: 'ana', error: null });
+    if (nombre === 'buscar_personas') return Promise.resolve({ data: mock.parecidos, error: null });
     return Promise.resolve({ data: null, error: null });
   });
 });
@@ -109,9 +118,9 @@ describe('Accesos', () => {
     mock.invocar.mockResolvedValue({ data: { usuario: 'ana', claveTemporal: 'Ab3d-Ef5g-Hj7k', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
     const el = await abrir();
     await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
-    await escribir(campo('Nombre de la persona'), 'Ana María Pérez');
-    await act(async () => { campo('Nombre de la persona').dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); });
-    await esperar();
+    await escribir(campo('Título'), 'Lic.');
+    await nombre('Ana María', 'Pérez');
+    await salir(campo('1.er apellido'));
     expect((campo('Usuario (solo') as HTMLInputElement).value).toBe('ana');
 
     await click(botonDialogo('Crear acceso'));
@@ -121,7 +130,7 @@ describe('Accesos', () => {
     await click(interruptor('Dirección'));
     await click(botonDialogo('Crear acceso'));
     await esperar();
-    expect(mock.invocar).toHaveBeenCalledWith('accesos', { body: { accion: 'crear', usuario: 'ana', nombre: 'Ana María Pérez', roles: ['direccion'], docenteId: null, crearDocente: false } });
+    expect(mock.invocar).toHaveBeenCalledWith('accesos', { body: { accion: 'crear', usuario: 'ana', nombre: 'Lic. Ana María Pérez', otraPersona: false, roles: ['direccion'], docenteId: null, crearDocente: false, titulo: 'Lic.', nombres: 'Ana María', apellido1: 'Pérez', apellido2: null } });
     const dlg = document.querySelector('[role=dialog]')!;
     expect(dlg.textContent).toContain('Acceso creado');
     expect(dlg.textContent).toContain('se muestra una sola vez');
@@ -134,7 +143,7 @@ describe('Accesos', () => {
     mock.invocar.mockResolvedValue({ data: { usuario: 'agil', claveTemporal: 'Escuela2026', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
     const el = await abrir();
     await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
-    await escribir(campo('Nombre de la persona'), 'Ana Gil');
+    await nombre('Ana', 'Gil');
     await escribir(campo('Usuario (solo'), 'agil');
     await click(interruptor('Dirección'));
     expect(q('[role=dialog] input[type=radio]')).toHaveLength(2);
@@ -155,7 +164,7 @@ describe('Accesos', () => {
     mock.invocar.mockResolvedValue({ data: { usuario: 'ana', claveTemporal: 'Ab3d-Ef5g-Hj7k', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
     const el = await abrir();
     await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
-    await escribir(campo('Nombre de la persona'), 'Ana Gil');
+    await nombre('Ana', 'Gil');
     await escribir(campo('Usuario (solo'), 'agil');
     await click(interruptor('Dirección'));
     await click(botonDialogo('Crear acceso'));
@@ -180,11 +189,11 @@ describe('Accesos', () => {
     mock.invocar.mockResolvedValue({ data: { usuario: 'ana', claveTemporal: 'Ab3d-Ef5g-Hj7k', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
     const el = await abrir();
     await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
-    await escribir(campo('Nombre de la persona'), 'Ana Gil');
+    await nombre('Ana', 'Gil');
     await escribir(campo('Usuario (solo'), 'agil');
-    expect(q('[role=dialog] select')).toHaveLength(0);
+    expect(q('[role=dialog] select')).toHaveLength(1);   // solo el título: aún no hay selector de docente
     await click(interruptor('Docente'));
-    const opciones = q('option', document.querySelector('[role=dialog]')!).map((o) => o.textContent);
+    const opciones = q('option', campo('Registro de docente').parentElement!).map((o) => o.textContent);
     expect(opciones.some((t) => t?.includes('Prof. Libre'))).toBe(true);
     expect(opciones.some((t) => t?.includes('Prof. Ocupado'))).toBe(false);
 
@@ -202,7 +211,7 @@ describe('Accesos', () => {
     mock.invocar.mockResolvedValue({ data: null, error: Object.assign(new Error('x'), { name: 'FunctionsFetchError' }) });
     const el = await abrir();
     await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
-    await escribir(campo('Nombre de la persona'), 'Ana Gil');
+    await nombre('Ana', 'Gil');
     await escribir(campo('Usuario (solo'), 'cpena');
     await click(interruptor('Dirección'));
     await click(botonDialogo('Crear acceso'));
@@ -249,5 +258,73 @@ describe('Accesos', () => {
 
     await click(q('input[type=checkbox]', el)[0]);
     expect(q('button[aria-label="Reactivar a Rosa Fuera"]', el)).toHaveLength(1);
+  });
+
+  it('el formulario tiene título (lista), nombres y apellidos por separado, y el 2.º apellido es opcional', async () => {
+    const el = await abrir();
+    await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
+    const titulo = campo('Título') as HTMLSelectElement;
+    expect([...titulo.options].map((o) => o.textContent)).toEqual(expect.arrayContaining(['Sin título', 'Lic.', 'Licda.', 'Ing.']));
+    await click(interruptor('Dirección'));
+    await escribir(campo('Usuario (solo'), 'zz');
+    await click(botonDialogo('Crear acceso'));
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('Escribe los nombres.');
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('Escribe el primer apellido.');
+    expect(document.querySelector('[role=dialog]')?.textContent).not.toContain('2.º apellido es obligatorio');
+    expect(mock.invocar).not.toHaveBeenCalled();
+  });
+
+  it('si la persona ya es un docente sin acceso, se elige en lugar de crearla otra vez', async () => {
+    mock.invocar.mockResolvedValue({ data: { usuario: 'ana', claveTemporal: 'Ab3d-Ef5g-Hj7k', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
+    mock.datos.docentes = [
+      { id: 'd1', nombre: 'Licda. Ana Gil Pérez', titulo: 'Licda.', nombres: 'Ana', apellido1: 'Gil', apellido2: 'Pérez', correo: null, activo: true, baja_motivo: null, baja_nota: null, perfil_id: null },
+    ];
+    mock.parecidos = [{ tipo: 'docente', id: 'd1', nombre: 'Licda. Ana Gil Pérez', activo: true, tiene_acceso: false, exacta: false }];
+    const el = await abrir();
+    await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
+    await nombre('Ana', 'Gil');
+    await salir(campo('1.er apellido'));
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('¿Es alguna de ellas?');
+    await click(q('[role=dialog] button').find((b) => b.getAttribute('aria-label') === 'Es Licda. Ana Gil Pérez'));
+    expect((campo('Nombre(s)') as HTMLInputElement).value).toBe('Ana');
+    expect((campo('2.º apellido') as HTMLInputElement).value).toBe('Pérez');
+    expect((campo('Título') as HTMLSelectElement).value).toBe('Licda.');
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('No se creará otra vez');
+    expect(interruptor('Docente').getAttribute('aria-checked')).toBe('true');
+    await click(botonDialogo('Crear acceso'));
+    await esperar();
+    expect(mock.invocar).toHaveBeenCalledWith('accesos', { body: expect.objectContaining({
+      roles: ['docente'], docenteId: 'd1', crearDocente: false, otraPersona: false, nombres: 'Ana', apellido1: 'Gil', apellido2: 'Pérez', titulo: 'Licda.',
+    }) });
+  });
+
+  it('con una persona parecida no deja continuar hasta confirmar que es otra, y entonces lo avisa al servidor', async () => {
+    mock.invocar.mockResolvedValue({ data: { usuario: 'ana', claveTemporal: 'Ab3d-Ef5g-Hj7k', vence: '2026-10-20T12:00:00Z', perfilId: 'n1' }, error: null });
+    mock.parecidos = [{ tipo: 'acceso', id: 'p1', nombre: 'Prof. Ana Gil', activo: true, tiene_acceso: true, exacta: true }];
+    const el = await abrir();
+    await click(q('button', el).find((b) => b.textContent?.includes('Nuevo acceso')));
+    await nombre('Ana', 'Gil');
+    await salir(campo('1.er apellido'));
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('ya tiene acceso');
+    await click(interruptor('Dirección'));
+    await click(botonDialogo('Crear acceso'));
+    expect(mock.invocar).not.toHaveBeenCalled();
+    expect(document.querySelector('[role=dialog]')?.textContent).toContain('confirma que es otra persona');
+    await click(q('[role=dialog] input[type=checkbox]')[0]);
+    await click(botonDialogo('Crear acceso'));
+    await esperar();
+    expect(mock.invocar).toHaveBeenCalledWith('accesos', { body: expect.objectContaining({ otraPersona: true, docenteId: null }) });
+  });
+
+  it('editar una persona: propone el nombre dividido y guarda las partes', async () => {
+    const el = await abrir();
+    await click(q('button[aria-label="Cambiar roles de Prof. Carmen Peña"]', el)[0]);
+    expect((campo('Título') as HTMLSelectElement).value).toBe('Prof.');
+    expect((campo('Nombre(s)') as HTMLInputElement).value).toBe('Carmen');
+    expect((campo('1.er apellido') as HTMLInputElement).value).toBe('Peña');
+    await escribir(campo('2.º apellido'), 'Soto');
+    await click(botonDialogo('Guardar cambios'));
+    await esperar();
+    expect(mock.rpc).toHaveBeenCalledWith('actualizar_persona_acceso', { p_perfil_id: 'p1', p_titulo: 'Prof.', p_nombres: 'Carmen', p_apellido1: 'Peña', p_apellido2: 'Soto' });
   });
 });

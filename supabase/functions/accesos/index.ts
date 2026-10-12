@@ -81,6 +81,10 @@ Deno.serve(async (req) => {
         const args = {
           p_usuario: cuerpo.usuario, p_nombre: cuerpo.nombre, p_roles: cuerpo.roles,
           p_docente_id: cuerpo.docenteId ?? null, p_crear_docente: !!cuerpo.crearDocente,
+          // Nombre dividido (opcional: sin estas partes se usa p_nombre como antes).
+          p_titulo: cuerpo.titulo ?? null, p_nombres: cuerpo.nombres ?? null,
+          p_apellido1: cuerpo.apellido1 ?? null, p_apellido2: cuerpo.apellido2 ?? null,
+          p_otra_persona: !!cuerpo.otraPersona,
         };
         // 1) La base revisa todo (permiso, usuario libre, roles) ANTES de crear la cuenta.
         const v = await quien.rpc('validar_nuevo_acceso', args);

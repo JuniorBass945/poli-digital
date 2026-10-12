@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, RotateCcw, Search, UserMinus } from 'lucide-react';
 import { Aviso, Btn, Campo, Card, Chip, Modal, inputCls } from '../../ui';
-import { actualizarDocente, crearDocente, darBajaDocente, listarAsignaciones, listarAulasCompletas, listarDocentes, reactivarDocente } from './apiEstructura';
+import { EnCarga } from '../../ui/Carga';
+import { actualizarDocentePersona, buscarPersonas, crearDocentePersona, darBajaDocente, listarAsignaciones, listarAulasCompletas, listarDocentes, reactivarDocente } from './apiEstructura';
+import CamposNombre from './CamposNombre';
 import Confirmar from './Confirmar';
+import { PARTES_VACIAS, componerNombre, partesDe, validarPartes, type Coincidencia, type PartesNombre } from './partesNombre';
 import { etiquetaAulaCompleta, type Asignacion, type AulaCompleta, type Docente } from './tiposEstructura';
 import { MOTIVOS_BAJA_DOCENTE, etiquetaMotivoDocente, resumenClases, validarBajaDocente, validarDocente } from './validarEstructura';
 
@@ -99,7 +102,7 @@ export default function Docentes() {
               const clases = clasesDe(d.id);
               const guias = guiaDe(d.id);
               return (
-                <tr key={d.id} className="h-15 border-b border-line last:border-0">
+                <tr key={d.id} className="border-b border-line last:border-0">
                   <td className="px-4 py-2.5">
                     <div className="font-medium">{d.nombre}</div>
                     <div className="text-xs text-muted">{d.correo ?? 'Sin correo'}</div>
@@ -132,11 +135,11 @@ export default function Docentes() {
             {!cargando && visibles.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-muted">{docentes.length === 0 ? 'Todavía no hay docentes. Registra el primero con "Nuevo docente".' : 'Ningún docente coincide con la búsqueda.'}</td></tr>
             )}
-            {cargando && <tr><td colSpan={5} className="px-4 py-10 text-center text-muted">Cargando…</td></tr>}
+            {cargando && <tr><td colSpan={5} className="px-4 py-10 text-center"><EnCarga /></td></tr>}
           </tbody>
         </table>
       </Card>
-      <p className="mt-2 text-sm text-muted">El acceso al sistema de cada docente se creará más adelante con la invitación por correo; por ahora se registra su ficha.</p>
+      <p className="mt-2 text-sm text-muted">Para que un docente pueda entrar al sistema, dale su acceso en la pestaña Accesos: allí eliges esta misma ficha, sin crearla otra vez.</p>
 
       {(dialogo?.tipo === 'nuevo' || dialogo?.tipo === 'editar') && (
         <FormularioDocente docente={dialogo.tipo === 'editar' ? dialogo.d : null} onClose={() => setDialogo(null)} onGuardado={terminar} />
@@ -162,39 +165,64 @@ export default function Docentes() {
 }
 
 function FormularioDocente({ docente, onClose, onGuardado }: { docente: Docente | null; onClose: () => void; onGuardado: (m: string) => void }) {
-  const [nombre, setNombre] = useState(docente?.nombre ?? '');
+  const [partes, setPartes] = useState<PartesNombre>(docente ? partesDe(docente) : PARTES_VACIAS);
   const [correo, setCorreo] = useState(docente?.correo ?? '');
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [parecidos, setParecidos] = useState<Coincidencia[]>([]);
+  const [otraPersona, setOtraPersona] = useState(false);
+
+  // Al crear, se busca si ya existe alguien con ese nombre (no se bloquea por nombre: pueden ser homónimos).
+  async function revisarParecidos() {
+    if (docente || !partes.nombres.trim() || !partes.apellido1.trim()) { setParecidos([]); return; }
+    try { setParecidos(await buscarPersonas(partes)); } catch { /* la revisión es una ayuda; el servidor vuelve a comprobar */ }
+  }
 
   async function guardar() {
-    const errs = validarDocente({ nombre, correo });
+    const errs: Record<string, string> = { ...validarPartes(partes), ...validarDocente({ nombre: componerNombre(partes), correo }) };
+    if (!docente && parecidos.length > 0 && !otraPersona) errs.parecidos = 'Confirma que es otra persona o cancela y usa el docente que ya existe.';
     setErrores(errs);
     if (Object.keys(errs).length > 0) return;
+    const nombre = componerNombre(partes);
     setEnviando(true);
     setErrorServidor(null);
     try {
       if (docente) {
-        await actualizarDocente(docente.id, nombre.trim(), correo.trim() || null);
-        onGuardado(`Los datos de ${nombre.trim()} fueron actualizados.`);
+        await actualizarDocentePersona(docente.id, partes, correo.trim() || null);
+        onGuardado(`Los datos de ${nombre} fueron actualizados.`);
       } else {
-        await crearDocente(nombre.trim(), correo.trim() || null);
-        onGuardado(`${nombre.trim()} fue registrado. Ya puedes asignarle materias.`);
+        await crearDocentePersona(partes, correo.trim() || null, otraPersona);
+        onGuardado(`${nombre} fue registrado. Ya puedes asignarle materias.`);
       }
     } catch (e) {
       setErrorServidor((e as Error).message);
       setEnviando(false);
+      void revisarParecidos();
     }
   }
 
   return (
     <Modal titulo={docente ? 'Editar docente' : 'Nuevo docente'} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); void guardar(); }} noValidate className="grid gap-3">
-        <Campo etiqueta="Nombre con título (Prof., Ing. o Lic.)">
-          <input className={inputCls} value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          {errores.nombre && <span className="mt-1 block text-xs text-bad-ink">{errores.nombre}</span>}
-        </Campo>
+        <CamposNombre valor={partes} onChange={(p) => { setPartes(p); setOtraPersona(false); }} errores={errores} alSalir={() => void revisarParecidos()} />
+        {parecidos.length > 0 && !docente && (
+          <Aviso tono="warn">
+            <p className="font-medium">Ya hay alguien con un nombre parecido:</p>
+            <ul className="my-1 list-disc pl-5">
+              {parecidos.map((c) => (
+                <li key={`${c.tipo}-${c.id}`}>
+                  {c.nombre} {c.exacta ? '(mismo nombre)' : ''} {!c.activo ? '(de baja)' : c.tieneAcceso ? '(ya tiene acceso)' : ''}
+                </li>
+              ))}
+            </ul>
+            <label className="mt-1 flex items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4 accent-[var(--brand)]" checked={otraPersona} onChange={(e) => setOtraPersona(e.target.checked)} />
+              Es otra persona con el mismo nombre
+            </label>
+            {errores.parecidos && <span className="mt-1 block text-xs text-bad-ink">{errores.parecidos}</span>}
+          </Aviso>
+        )}
         <Campo etiqueta="Correo (opcional)">
           <input className={inputCls} type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} />
           {errores.correo && <span className="mt-1 block text-xs text-bad-ink">{errores.correo}</span>}

@@ -1,6 +1,10 @@
 export interface Docente {
   id: string;
   nombre: string;
+  titulo: string | null;
+  nombres: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
   correo: string | null;
   activo: boolean;
   bajaMotivo: string | null;

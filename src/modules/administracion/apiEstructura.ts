@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { traducirError } from './api';
+import { leerCoincidencias, type Coincidencia, type PartesNombre } from './partesNombre';
 import type { Asignacion, AulaCompleta, Docente, Materia } from './tiposEstructura';
 
 interface Ok {
@@ -13,13 +14,17 @@ const revisar = ({ error }: Ok) => {
 export async function listarDocentes(): Promise<Docente[]> {
   const { data, error } = await supabase
     .from('docentes')
-    .select('id, nombre, correo, activo, baja_motivo, baja_nota, perfil_id')
+    .select('id, nombre, titulo, nombres, apellido1, apellido2, correo, activo, baja_motivo, baja_nota, perfil_id')
     .order('nombre')
     .range(0, 999);
   if (error) throw traducirError(error);
   return ((data ?? []) as Array<Record<string, unknown>>).map((d) => ({
     id: d.id as string,
     nombre: d.nombre as string,
+    titulo: (d.titulo as string | null) ?? null,
+    nombres: (d.nombres as string | null) ?? null,
+    apellido1: (d.apellido1 as string | null) ?? null,
+    apellido2: (d.apellido2 as string | null) ?? null,
     correo: (d.correo as string | null) ?? null,
     activo: d.activo as boolean,
     bajaMotivo: (d.baja_motivo as string | null) ?? null,
@@ -85,6 +90,24 @@ export async function crearDocente(nombre: string, correo: string | null) {
 }
 export async function actualizarDocente(id: string, nombre: string, correo: string | null) {
   revisar(await supabase.rpc('actualizar_docente', { p_id: id, p_nombre: nombre, p_correo: correo }));
+}
+export async function crearDocentePersona(p: PartesNombre, correo: string | null, otraPersona: boolean) {
+  revisar(await supabase.rpc('crear_docente_persona', {
+    p_titulo: p.titulo || null, p_nombres: p.nombres.trim(), p_apellido1: p.apellido1.trim(), p_apellido2: p.apellido2.trim() || null,
+    p_correo: correo, p_otra_persona: otraPersona,
+  }));
+}
+export async function actualizarDocentePersona(id: string, p: PartesNombre, correo: string | null) {
+  revisar(await supabase.rpc('actualizar_docente_persona', {
+    p_id: id, p_titulo: p.titulo || null, p_nombres: p.nombres.trim(), p_apellido1: p.apellido1.trim(), p_apellido2: p.apellido2.trim() || null,
+    p_correo: correo,
+  }));
+}
+/** Personas del centro que podrían ser la misma (docentes y accesos). */
+export async function buscarPersonas(p: PartesNombre): Promise<Coincidencia[]> {
+  const { data, error } = await supabase.rpc('buscar_personas', { p_nombres: p.nombres.trim(), p_apellido1: p.apellido1.trim(), p_apellido2: p.apellido2.trim() || null });
+  if (error) throw traducirError(error);
+  return leerCoincidencias(data);
 }
 export async function darBajaDocente(id: string, motivo: string, nota: string) {
   revisar(await supabase.rpc('dar_baja_docente', { p_id: id, p_motivo: motivo, p_nota: nota.trim() || null }));

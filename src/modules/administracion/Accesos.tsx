@@ -10,9 +10,11 @@ import {
   ESTADO_ETIQUETA, ESTADO_TONO, alternarRol, esUnoMismo, mensajeEntrega, paramsDocente, resumenRoles, validarBorradorAcceso, validarRoles,
   type Acceso,
 } from './reglasAcceso';
-import { cambiarRoles, crearAcceso, listarAccesos, quitarAcceso, reiniciarAcceso, renombrarAcceso, sugerirUsuario, type ClaveEntregada } from './apiAccesos';
-import { listarDocentes } from './apiEstructura';
+import { cambiarPersonaAcceso, cambiarRoles, crearAcceso, listarAccesos, quitarAcceso, reiniciarAcceso, sugerirUsuarioPartes, type ClaveEntregada } from './apiAccesos';
+import { buscarPersonas, listarDocentes } from './apiEstructura';
+import CamposNombre from './CamposNombre';
 import Confirmar from './Confirmar';
+import { PARTES_VACIAS, componerNombre, partesDe, validarPartes, type Coincidencia, type PartesNombre } from './partesNombre';
 import type { Docente } from './tiposEstructura';
 
 const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -286,60 +288,128 @@ function SelectorDocente({ valor, onChange, docentes, actualId }: { valor: strin
 
 // ---------- Nuevo acceso ----------
 function FormularioNuevo({ docentes, onClose, onCreado }: { docentes: Docente[]; onClose: () => void; onCreado: (nombre: string, e: ClaveEntregada) => void }) {
-  const [nombre, setNombre] = useState('');
+  const [partes, setPartes] = useState<PartesNombre>(PARTES_VACIAS);
   const [usuario, setUsuario] = useState('');
   const [editoUsuario, setEditoUsuario] = useState(false);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [docente, setDocente] = useState('');
+  const [elegido, setElegido] = useState<Docente | null>(null);
+  const [parecidos, setParecidos] = useState<Coincidencia[]>([]);
+  const [otraPersona, setOtraPersona] = useState(false);
   const [modoClave, setModoClave] = useState<ModoClave>('auto');
   const [claveManual, setClaveManual] = useState('');
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  // Al terminar de escribir el nombre se propone un usuario libre (se puede cambiar).
-  async function proponer() {
-    if (editoUsuario || !nombre.trim()) return;
-    try { setUsuario(await sugerirUsuario(nombre)); } catch { /* la sugerencia es opcional */ }
+  // Paso "¿Quién es?": al escribir el nombre se buscan personas que ya existen y se propone un usuario libre.
+  async function revisar(p: PartesNombre = partes) {
+    if (elegido || !p.nombres.trim() || !p.apellido1.trim()) { setParecidos([]); return; }
+    try { setParecidos(await buscarPersonas(p)); } catch { /* es una ayuda; el servidor vuelve a comprobar */ }
+    if (editoUsuario) return;
+    try { setUsuario(await sugerirUsuarioPartes(p)); } catch { /* la sugerencia es opcional */ }
+  }
+
+  // Docentes que existen y todavía no tienen acceso: se eligen en lugar de crearlos otra vez.
+  const docentesLibres = parecidos.filter((c) => c.tipo === 'docente' && c.activo && !c.tieneAcceso)
+    .map((c) => docentes.find((d) => d.id === c.id)).filter((d): d is Docente => !!d);
+  const otros = parecidos.filter((c) => !(c.tipo === 'docente' && c.activo && !c.tieneAcceso));
+
+  function elegir(d: Docente) {
+    const p = partesDe(d);
+    setElegido(d);
+    setPartes(p);
+    setDocente(d.id);
+    setRoles((r) => ordenarRoles(r.includes('docente') ? r : [...r, 'docente']));
+    setParecidos([]);
+    setOtraPersona(false);
+    if (!editoUsuario) void sugerirUsuarioPartes(p).then(setUsuario).catch(() => undefined);
+  }
+  function soltar() {
+    setElegido(null);
+    setDocente('');
+    void revisar();
   }
 
   async function crear() {
-    const errs = validarBorradorAcceso({ nombre, usuario, roles, docente }, validarUsuario);
+    const errs = validarBorradorAcceso({ partes, usuario, roles, docente }, validarUsuario);
     if (modoClave === 'manual') {
       const pc = validarClaveTemporal(claveManual, usuario);
       if (pc) errs.clave = pc;
     }
+    if (!elegido && parecidos.length > 0 && !otraPersona) errs.parecidos = 'Elige a la persona de la lista o confirma que es otra persona.';
     setErrores(errs);
     if (Object.keys(errs).length > 0) return;
     setEnviando(true);
     setErrorServidor(null);
     try {
       const { docenteId, crearDocente } = paramsDocente(roles, docente);
-      const entrega = await crearAcceso({ usuario: usuario.trim().toLowerCase(), nombre: nombre.trim(), roles: ordenarRoles(roles), docenteId, crearDocente, claveManual: modoClave === 'manual' ? claveManual : undefined });
-      onCreado(nombre.trim(), entrega);
+      const nombre = componerNombre(partes);
+      const entrega = await crearAcceso({
+        usuario: usuario.trim().toLowerCase(), nombre, partes, otraPersona: otraPersona && !elegido, roles: ordenarRoles(roles), docenteId, crearDocente,
+        claveManual: modoClave === 'manual' ? claveManual : undefined,
+      });
+      onCreado(nombre, entrega);
     } catch (e) {
       setErrorServidor((e as Error).message);
       setEnviando(false);
+      void revisar();
     }
   }
 
   return (
     <Modal titulo="Nuevo acceso" onClose={onClose} ancho="lg">
       <form onSubmit={(e) => { e.preventDefault(); void crear(); }} noValidate className="grid gap-3">
-        <Campo etiqueta="Nombre de la persona (es el que verá en pantalla)">
-          <input className={inputCls} value={nombre} onChange={(e) => setNombre(e.target.value)} onBlur={() => void proponer()} />
-          {errores.nombre && <span className="mt-1 block text-xs text-bad-ink">{errores.nombre}</span>}
-        </Campo>
+        <div>
+          <div className="mb-1 text-sm font-medium text-muted">¿Quién es?</div>
+          <CamposNombre valor={partes} onChange={(p) => { setPartes(p); setOtraPersona(false); }} errores={errores} alSalir={() => void revisar()} deshabilitado={!!elegido} />
+        </div>
+        {elegido && (
+          <Aviso tono="ok">
+            Se usará el docente que ya existe: <b>{elegido.nombre}</b>. No se creará otra vez.{' '}
+            <button type="button" className="font-medium underline" onClick={soltar}>Es otra persona</button>
+          </Aviso>
+        )}
+        {!elegido && docentesLibres.length > 0 && (
+          <Aviso tono="warn">
+            <p className="font-medium">Estas personas ya están registradas como docentes y no tienen acceso. ¿Es alguna de ellas?</p>
+            <ul className="my-1.5 grid gap-1.5">
+              {docentesLibres.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center gap-2">
+                  <span>{d.nombre}</span>
+                  <Btn variante="soft" aria-label={`Es ${d.nombre}`} onClick={() => elegir(d)}>Sí, es esta persona</Btn>
+                </li>
+              ))}
+            </ul>
+          </Aviso>
+        )}
+        {!elegido && otros.length > 0 && (
+          <Aviso tono="warn">
+            <p className="font-medium">También existe:</p>
+            <ul className="my-1 list-disc pl-5">
+              {otros.map((c) => <li key={`${c.tipo}-${c.id}`}>{c.nombre} {!c.activo ? '(de baja)' : c.tieneAcceso ? '(ya tiene acceso)' : ''}</li>)}
+            </ul>
+          </Aviso>
+        )}
+        {!elegido && parecidos.length > 0 && (
+          <div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4 accent-[var(--brand)]" checked={otraPersona} onChange={(e) => setOtraPersona(e.target.checked)} />
+              Ninguna de ellas: es otra persona con el mismo nombre
+            </label>
+            {errores.parecidos && <span className="mt-1 block text-xs text-bad-ink">{errores.parecidos}</span>}
+          </div>
+        )}
         <Campo etiqueta="Usuario (solo para iniciar sesión)">
           <input className={inputCls} value={usuario} autoCapitalize="none" spellCheck={false} onChange={(e) => { setUsuario(e.target.value); setEditoUsuario(true); }} />
           {errores.usuario && <span className="mt-1 block text-xs text-bad-ink">{errores.usuario}</span>}
         </Campo>
         <div>
           <div className="mb-1 text-sm font-medium text-muted">Roles</div>
-          <InterruptoresRoles roles={roles} onChange={setRoles} />
+          <InterruptoresRoles roles={roles} onChange={(r) => setRoles(elegido && !r.includes('docente') ? [...r, 'docente'] : r)} />
           {errores.roles && <span className="mt-1 block text-xs text-bad-ink">{errores.roles}</span>}
         </div>
-        {roles.includes('docente') && <SelectorDocente valor={docente} onChange={setDocente} docentes={docentes} actualId={null} />}
+        {roles.includes('docente') && !elegido && <SelectorDocente valor={docente} onChange={setDocente} docentes={docentes} actualId={null} />}
         <SelectorClave modo={modoClave} onModo={setModoClave} clave={claveManual} onClave={setClaveManual} error={errores.clave} />
         {errorServidor && <Aviso tono="bad">{errorServidor}</Aviso>}
         <div className="flex justify-end gap-2">
@@ -353,23 +423,28 @@ function FormularioNuevo({ docentes, onClose, onCreado }: { docentes: Docente[];
 
 // ---------- Cambiar roles y nombre ----------
 function FormularioRoles({ a, docentes, onClose, onGuardado }: { a: Acceso; docentes: Docente[]; onClose: () => void; onGuardado: (m: string) => void }) {
-  const [nombre, setNombre] = useState(a.nombre);
+  const [partes, setPartes] = useState<PartesNombre>(partesDe(a));
   const [roles, setRoles] = useState<Rol[]>(a.roles);
   const [docente, setDocente] = useState(a.docenteId ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [errores, setErrores] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const quitaDocente = a.roles.includes('docente') && !roles.includes('docente');
 
   async function guardar() {
-    const problema = !nombre.trim() ? 'Escribe el nombre de la persona.' : validarRoles(roles, docente);
+    const errs = validarPartes(partes);
+    setErrores(errs);
+    if (Object.keys(errs).length > 0) return;
+    const problema = validarRoles(roles, docente);
     if (problema) { setError(problema); return; }
+    const nombre = componerNombre(partes);
     setEnviando(true);
     setError(null);
     try {
       const { docenteId, crearDocente } = paramsDocente(roles, docente);
-      if (nombre.trim() !== a.nombre) await renombrarAcceso(a.id, nombre.trim());
+      if (nombre !== a.nombre) await cambiarPersonaAcceso(a.id, partes);
       await cambiarRoles(a.id, ordenarRoles(roles), docenteId, crearDocente);
-      onGuardado(`Se actualizaron los datos de ${nombre.trim()}.`);
+      onGuardado(`Se actualizaron los datos de ${nombre}.`);
     } catch (e) {
       setError((e as Error).message);
       setEnviando(false);
@@ -379,9 +454,7 @@ function FormularioRoles({ a, docentes, onClose, onGuardado }: { a: Acceso; doce
   return (
     <Modal titulo={`Roles de ${a.nombre}`} onClose={onClose} ancho="lg">
       <form onSubmit={(e) => { e.preventDefault(); void guardar(); }} noValidate className="grid gap-3">
-        <Campo etiqueta="Nombre (el que se ve en pantalla)">
-          <input className={inputCls} value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        </Campo>
+        <CamposNombre valor={partes} onChange={setPartes} errores={errores} />
         <InterruptoresRoles roles={roles} onChange={setRoles} />
         {roles.includes('docente') && <SelectorDocente valor={docente} onChange={setDocente} docentes={docentes} actualId={a.docenteId} />}
         {quitaDocente && <Aviso tono="warn">Al quitar el rol Docente, su registro de docente se conserva (con sus clases), pero deja de estar ligado a este usuario.</Aviso>}

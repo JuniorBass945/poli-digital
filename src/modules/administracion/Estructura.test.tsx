@@ -103,10 +103,14 @@ describe('Docentes', () => {
   it('registra un docente', async () => {
     await abrir('Docentes');
     await click(porTexto('button', 'Nuevo docente'));
-    await escribir(campo('Nombre con título'), 'Prof. Ana Ruiz');
+    await escribir(campo('Título'), 'Lic.');
+    await escribir(campo('Nombre(s)'), 'Ana');
+    await escribir(campo('1.er apellido'), 'Ruiz');
     await escribir(campo('Correo'), 'ana@centro.test');
     await click(botonDialogo('Registrar docente'));
-    expect(mock.rpc).toHaveBeenCalledWith('crear_docente', { p_nombre: 'Prof. Ana Ruiz', p_correo: 'ana@centro.test' });
+    expect(mock.rpc).toHaveBeenCalledWith('crear_docente_persona', {
+      p_titulo: 'Lic.', p_nombres: 'Ana', p_apellido1: 'Ruiz', p_apellido2: null, p_correo: 'ana@centro.test', p_otra_persona: false,
+    });
   });
 
   it('no deja dar de baja a un docente con clases y explica por qué', async () => {

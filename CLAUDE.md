@@ -84,6 +84,12 @@ definido para el sistema ni dominio propio**.
   orden en `perfil.rol` (y `perfil.roles` tiene todos). Guardias: nunca queda un centro sin administrador; nadie se quita su propio rol de admin ni su acceso; los tutores no tienen acceso.
   `perfiles.rol` se conserva (rol principal) y un trigger lo copia a `perfil_roles`, así el seed y las pruebas anteriores siguen igual. Los usuarios de demostración siguen entrando con correo.
   **No reemplaza `administracion/index.tsx`** (el usuario lo edita a mano): hay que agregar la pestaña Accesos (ver la guía).
+- **Nombre dividido y control de personas repetidas: generado y probado en el sandbox; falta que el usuario lo aplique y confirme.** Migración `20261018000100_nombres_personas.sql`
+  (columnas `titulo, nombres, apellido1, apellido2` en `docentes` y `perfiles`; `nombre` sigue siendo el nombre completo armado; funciones `crear_docente_persona`, `actualizar_docente_persona`,
+  `buscar_personas`, `sugerir_usuario_partes`, `actualizar_persona_acceso`; `validar_nuevo_acceso`/`registrar_acceso`/`listar_accesos` ampliadas), pruebas `supabase/tests/nombres_personas.sql` (41),
+  guía `docs/R1-11_NOMBRES_Y_PERSONAS.md`. Formularios con Título (lista Lic., Licda., Ing.…), Nombre(s), 1.er apellido y 2.º apellido opcional (`CamposNombre.tsx`, `partesNombre.ts`).
+  **Decisión:** no se bloquea por nombre (homónimos): se avisa y se pide confirmar "es otra persona"; paso "¿Quién es?" para elegir un docente existente sin acceso; se bloquean siempre el usuario repetido y
+  el docente que ya tiene acceso. La Edge Function `accesos` pasa las partes y `otraPersona` (hay que volver a desplegarla). Cédula como clave única: solo cuando el centro la entregue.
 - Usuarios de prueba (contraseña de desarrollo definida por el usuario): `admin@`, `direccion@`, `coordinacion@`, `docente@`, `orientacion@`, `tutor@` + `polidemo.test`.
   Hay que borrarlos o cambiar sus contraseñas antes de cargar datos reales, y separar un proyecto de Supabase de producción.
 - Registro abierto de usuarios desactivado en Supabase Auth.
