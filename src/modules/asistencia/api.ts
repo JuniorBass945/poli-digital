@@ -95,3 +95,34 @@ export async function guardarAsistencia(asignacionId: string, fecha: string, est
   if (error) throw mensajeDe(error);
   return data as ResultadoGuardado;
 }
+
+// ---------- Panel de asistencia ----------
+export interface PanelAsistencia {
+  desde: string;
+  hasta: string;
+  umbral: number;
+  hoy: string;
+  resumen: {
+    total: number; presentes: number; ausentes: number; tardanzas: number; excusas: number;
+    pct_asistencia: number | null; listas: number; estudiantes: number; dias_con_lista: number;
+  };
+  por_dia: Array<{ fecha: string; total: number; presentes: number; ausentes: number; tardanzas: number; excusas: number; pct: number }>;
+  por_aula: Array<{ aula_id: string; aula: string; listas: number; total: number; presentes: number; ausentes: number; tardanzas: number; excusas: number; pct: number }>;
+  en_riesgo: Array<{ estudiante_id: string; nombre: string; matricula: string; dias_ausente: number; tardanzas: number; ultima_ausencia: string | null; aula: string | null }>;
+  sin_lista_hoy: Array<{ asignacion_id: string; aula: string; materia: string; docente: string }>;
+}
+
+export async function panelAsistencia(desde: string, hasta: string, aulaId: string | null, umbral: number): Promise<PanelAsistencia> {
+  const { data, error } = await supabase.rpc('panel_asistencia', { p_desde: desde, p_hasta: hasta, p_aula_id: aulaId, p_umbral: umbral });
+  if (error) throw mensajeDe(error);
+  return data as PanelAsistencia;
+}
+
+export async function listarAulasFiltro(): Promise<Array<{ id: string; etiqueta: string }>> {
+  const { data, error } = await supabase.from('aulas').select('id, grado, seccion, especialidad').eq('activo', true).order('grado').order('seccion').range(0, 999);
+  if (error) throw mensajeDe(error);
+  return ((data ?? []) as Array<{ id: string; grado: string; seccion: string; especialidad: string | null }>).map((a) => ({
+    id: a.id,
+    etiqueta: `${a.grado} ${a.seccion}${a.especialidad ? `, ${a.especialidad}` : ''}`,
+  }));
+}

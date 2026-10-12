@@ -6,6 +6,7 @@ import Docentes from './Docentes';
 import Estudiantes from './Estudiantes';
 import Importar from './Importar';
 import Materias from './Materias';
+import Tutores from './Tutores';
 
 // R1 · Administración. Parte 1: Estudiantes. Parte 2: docentes, materias, aulas y asignaciones.
 // Quedan para las siguientes partes: tutores e importación desde Excel.
@@ -24,7 +25,7 @@ export default function Administracion() {
           { id: 'materias', etiqueta: 'Materias' },
           { id: 'aulas', etiqueta: 'Aulas' },
           { id: 'asignaciones', etiqueta: 'Asignaciones' },
-          { id: 'tutores', etiqueta: 'Tutores', proximamente: true },
+          { id: 'tutores', etiqueta: 'Tutores' },
         ]}
       />
       {tab === 'estudiantes' && <Estudiantes />}
@@ -33,6 +34,7 @@ export default function Administracion() {
       {tab === 'materias' && <Materias />}
       {tab === 'aulas' && <Aulas />}
       {tab === 'asignaciones' && <Asignaciones />}
+      {tab === 'tutores' && <Tutores />}
     </>
   );
 }

@@ -5,6 +5,7 @@ import { ROL_ETIQUETA } from '../lib/roles';
 import { cx } from '../lib/cx';
 import { MODULOS, modulosVisibles } from '../modules/registry';
 import { Btn, Card } from '../ui';
+import { EnCarga } from '../ui/Carga';
 import { useHashRoute } from './useHashRoute';
 
 // Un componente cargado de forma diferida por módulo: lo que no se usa no se descarga.
@@ -76,7 +77,7 @@ export default function Shell() {
       </header>
 
       <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7">
-        <Suspense fallback={<Card className="p-6 text-sm text-muted">Cargando…</Card>}>
+        <Suspense fallback={<Card className="p-6"><EnCarga texto="Cargando el módulo…" /></Card>}>
           <Pantalla />
         </Suspense>
       </main>

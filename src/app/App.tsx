@@ -1,13 +1,14 @@
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { entornoListo } from '../lib/env';
 import { Btn, Card } from '../ui';
+import { CargaGlobal, EnCarga } from '../ui/Carga';
 import Login from './Login';
 import Setup from './Setup';
 import Shell from './Shell';
 
 function Contenido() {
   const { cargando, sesion, perfil, error, salir, recargar } = useAuth();
-  if (cargando) return <div className="p-8 text-sm text-muted">Cargando…</div>;
+  if (cargando) return <div className="p-8"><EnCarga /></div>;
   if (!sesion) return <Login />;
   if (!perfil) {
     return (
@@ -32,6 +33,7 @@ export default function App() {
   if (!entornoListo) return <Setup />;
   return (
     <AuthProvider>
+      <CargaGlobal />
       <Contenido />
     </AuthProvider>
   );

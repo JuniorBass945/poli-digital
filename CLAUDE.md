@@ -53,18 +53,39 @@ definido para el sistema ni dominio propio**.
   Avisos incluye el **envío seguido** (`EnvioSeguido.tsx`): recorre los pendientes con enlace de WhatsApp; el envío masivo real queda para la API (R2).
   **Supuestos que hay que confirmar con el centro:** un aviso por estudiante y día; lo envía el docente que pasó lista; el docente corrige hasta 3 días atrás;
   tardanza y excusa no generan aviso; el consentimiento de WhatsApp aún no se exige (será obligatorio en R2).
+- **Panel de asistencia y pestaña Tutores: generados y probados en el sandbox; falta que el usuario los aplique y confirme**
+  (migraciones `20261014000100_panel_asistencia.sql` y `20261014000200_admin_tutores.sql`, pruebas `panel_asistencia.sql` y `admin_tutores.sql`,
+  datos de demostración `supabase/seed_asistencia_demo.sql` y limpieza `supabase/scripts/limpiar_asistencia_demo.sql`, guía `docs/R1-6_PANEL_ASISTENCIA_Y_TUTORES.md`).
+  El panel es la pestaña "Resumen" del módulo Asistencia (`panel_asistencia(desde, hasta, aula, umbral)`; direccion ve solo el resumen). Asistencia = (presentes + tardanzas) / registros;
+  "día con ausencia" = faltó al menos a una clase ese día; colores 90/80; umbral de riesgo 3 (todos por confirmar con el centro).
+  Tutores: editar datos y registrar el consentimiento de WhatsApp con evidencia (`actualizar_tutor`, `registrar_consentimiento`).
+- **Inicio útil por rol: generado y probado en el sandbox; falta que el usuario lo aplique y confirme** (requiere haber aplicado antes el panel de asistencia).
+  Migración `20261015000100_pendientes_datos.sql` (`pendientes_datos()`, solo admin), prueba `supabase/tests/pendientes_datos.sql`, guía `docs/R1-7_INICIO_POR_ROL.md`.
+  `src/app/Inicio.tsx` despacha a `src/app/inicio/Inicio{Direccion,Coordinacion,Docente,Admin,Orientacion,General}.tsx`; los cálculos puros están en `calculos.ts`.
+  Ventana de 2 semanas, riesgo desde 3 días con ausencia, colores 90/80 (por confirmar con el centro).
+- **Rendimiento (Inicio y panel más rápidos): generado y probado en el sandbox; falta que el usuario lo aplique y confirme.** Migración `20261016000100_rendimiento.sql`
+  (políticas con `(select ...)` y `panel_asistencia` con una sola lectura), prueba `supabase/tests/rendimiento.sql`, guía `docs/R1-8_RENDIMIENTO.md`.
+  El Inicio muestra un esqueleto y recuerda 5 minutos lo último visto por usuario (`useCarga(fn, nombre)` en `src/app/inicio/piezas.tsx`).
+  Medido: 2,700 registros 300 → 26 ms; 34,000 registros 945 → 280 ms. Tras aplicarlo hay que volver a correr todas las pruebas SQL de seguridad.
+- **Animación de carga global: generada y probada en el sandbox; falta que el usuario la aplique y confirme.** Barra superior y aviso "Cargando…" alimentados por `src/lib/actividad.ts`
+  (el cliente de Supabase usa `fetchConActividad`) y `CargaGlobal` en `src/ui/Carga.tsx`; `EnCarga` y `Spinner` para los textos de carga. Guía `docs/R1-9_ANIMACION_DE_CARGA.md`
+  (incluye el prompt opcional para cambiar los "Cargando…" sueltos de las tablas).
 - Usuarios de prueba (contraseña de desarrollo definida por el usuario): `admin@`, `direccion@`, `coordinacion@`, `docente@`, `orientacion@`, `tutor@` + `polidemo.test`.
   Hay que borrarlos o cambiar sus contraseñas antes de cargar datos reales, y separar un proyecto de Supabase de producción.
 - Registro abierto de usuarios desactivado en Supabase Auth.
 - La **demo** (React en JavaScript, datos ficticios) vive aparte: `poli-digital-demo-proyecto.zip` y `poli-digital-demo.html` en la carpeta de salidas.
 
 ## Pendiente, en el orden previsto
-1. Siguiente de Administración: pestaña **Tutores** (editar datos y registrar el consentimiento de WhatsApp). Cuando llegue el Excel oficial, adaptar la importación.
+1. Cuando llegue el Excel oficial del centro, adaptar la importación. Confirmar con el centro los supuestos de asistencia, avisos e Inicio.
 2. Función del servidor para invitar usuarios del personal (necesita correo propio y dominio).
-3. Panel de asistencia (historial y estadísticas); luego despliegue con datos reales y capacitación, que cierran R1.
+3. Despliegue con datos reales y capacitación, que cierran R1 (proyecto de producción separado, usuarios reales, función de invitar).
 4. R2 WhatsApp automático (la verificación de Meta tarda de 2 a 7 días: tramitarla pronto). R3 calificaciones y boletines con QR.
    R4 actividades. R5 orientación. R6 portal público. R7 estadísticas y planificación. R8 estabilización.
 - Por confirmar con el centro: nombre y dominio, Excel real, reglas de evaluación y pendientes, planificación docente, tutores sin cédula.
+
+## Pendientes de producto (no urgentes)
+- **Gráficos de asistencia más claros** (pedido por el usuario para más adelante): mejorar el gráfico de barras que comparten dirección y coordinación y evaluar otros tipos. Propuesta en `docs/PENDIENTE_GRAFICOS.md`.
+- **Módulo "Mis hijos" (portal, R6):** el registro lo lista para `tutor` y `direccion`, pero las familias no tendrán cuenta; hay que rehacerlo como el portal público de consulta (cédula + código) y quitarlo de esos roles.
 
 ## Arquitectura (resumen; detalle en `docs/ARQUITECTURA.md`)
 - Multicentro: toda tabla lleva `centro_id`. Lo académico cuelga de `anios_escolares`. **`asignaciones` = aula + materia + docente** es la pieza central.
@@ -80,6 +101,9 @@ definido para el sistema ni dominio propio**.
 - Cada tabla nueva: `centro_id`, marcas de tiempo, `enable row level security`, políticas por rol y trigger de auditoría. Funciones nuevas: quitar `execute` a `public` y `anon`.
 - Cada parte trae pruebas SQL (en una transacción con ROLLBACK, ejecutables en el SQL Editor) y pruebas de la app. `npm run build` ya revisa los tipos.
 - Identificadores en español sin tildes (`anios_escolares`, `estudiante_tutor`); textos de interfaz en español con tildes.
+- **Rendimiento de RLS:** en toda política, `app.centro_actual()`, `app.tiene_rol(...)` y `auth.uid()` van envueltas en `(select ...)` para evaluarse una vez por consulta, no por fila. `supabase/tests/rendimiento.sql` lo verifica.
+- **Carga:** toda consulta pasa por el cliente de Supabase, que activa la animación global; no hace falta agregar nada por módulo. Para placeholders de texto usar `EnCarga` (`src/ui/Carga.tsx`).
+- Nombres de archivo: nunca dos archivos de la misma carpeta que solo difieran en mayúsculas (Windows los confunde); `src/estructura-archivos.test.ts` lo verifica.
 - Nunca poner la clave `service_role` ni la contraseña de la base de datos en el frontend, el repositorio o el chat. La clave `anon` es pública por diseño.
 - Cada cambio de comportamiento se documenta en `docs/` y se anota el tiempo real en `docs/REGISTRO_HORAS.md` o en el Excel del plan.
 

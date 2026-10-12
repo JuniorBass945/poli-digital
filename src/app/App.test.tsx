@@ -17,6 +17,8 @@ vi.mock('../lib/supabase', () => {
     const o: Record<string, unknown> = {
       select: () => o,
       eq: () => o,
+      order: () => o,
+      range: () => o,
       maybeSingle: () =>
         Promise.resolve({
           data: { id: 'u1', centro_id: 'c1', rol: estado.rol, nombre: 'Usuario Prueba', centros: { nombre: 'Centro Demo' } },
@@ -40,6 +42,7 @@ vi.mock('../lib/supabase', () => {
         signInWithPassword: () => Promise.resolve({ error: null }),
       },
       from: qb,
+      rpc: () => Promise.resolve({ data: null, error: { message: 'sin datos en la prueba' } }),
     },
   };
 });
