@@ -59,12 +59,14 @@ export const MODULOS: ModuloDef[] = [
 
 export const moduloPorId = (id: string) => MODULOS.find((m) => m.id === id);
 
-/** Módulos que un rol puede ver, dadas las banderas activas del centro. */
-export function modulosVisibles(rol: Rol, activos: ReadonlySet<string>): ModuloDef[] {
-  return MODULOS.filter((m) => m.roles.includes(rol) && (m.siempre || activos.has(m.id)));
+/** Módulos que una persona puede ver (la suma de los de todos sus roles), dadas las banderas activas del centro. */
+export function modulosVisibles(roles: Rol | readonly Rol[], activos: ReadonlySet<string>): ModuloDef[] {
+  const mios = typeof roles === 'string' ? [roles] : roles;
+  return MODULOS.filter((m) => m.roles.some((r) => mios.includes(r)) && (m.siempre || activos.has(m.id)));
 }
 
 /** Módulos del rol que aún no están activos (se muestran como "próximamente"). */
-export function modulosPendientes(rol: Rol, activos: ReadonlySet<string>): ModuloDef[] {
-  return MODULOS.filter((m) => m.roles.includes(rol) && !m.siempre && !activos.has(m.id));
+export function modulosPendientes(roles: Rol | readonly Rol[], activos: ReadonlySet<string>): ModuloDef[] {
+  const mios = typeof roles === 'string' ? [roles] : roles;
+  return MODULOS.filter((m) => m.roles.some((r) => mios.includes(r)) && !m.siempre && !activos.has(m.id));
 }

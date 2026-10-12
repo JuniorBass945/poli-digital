@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { Btn, Campo, Card, inputCls } from '../ui';
+import { credencialAEmail } from '../lib/acceso';
 import { supabase } from '../lib/supabase';
 
 export default function Login() {
-  const [correo, setCorreo] = useState('');
+  const [usuario, setUsuario] = useState('');
   const [clave, setClave] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -13,10 +14,8 @@ export default function Login() {
     e.preventDefault();
     setEnviando(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({ email: correo.trim(), password: clave });
-    if (err) {
-  setError(err.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : `No se pudo entrar: ${err.message}`);
-}
+    const { error: err } = await supabase.auth.signInWithPassword({ email: credencialAEmail(usuario), password: clave });
+    if (err) setError('Usuario o contraseña incorrectos.');
     setEnviando(false);
   }
 
@@ -33,8 +32,8 @@ export default function Login() {
           </div>
         </div>
         <form onSubmit={entrar} className="grid gap-4">
-          <Campo etiqueta="Correo">
-            <input className={inputCls} type="email" autoComplete="username" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
+          <Campo etiqueta="Usuario">
+            <input className={inputCls} type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required value={usuario} onChange={(e) => setUsuario(e.target.value)} />
           </Campo>
           <Campo etiqueta="Contraseña">
             <input className={inputCls} type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} />

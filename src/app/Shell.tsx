@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState, type ComponentType } from 'react';
 import { GraduationCap, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { ROL_ETIQUETA } from '../lib/roles';
+import { etiquetaRoles } from '../lib/roles';
 import { cx } from '../lib/cx';
 import { MODULOS, modulosVisibles } from '../modules/registry';
 import { Btn, Card } from '../ui';
@@ -20,7 +20,7 @@ export default function Shell() {
   }, [oscuro]);
 
   if (!perfil) return null;
-  const visibles = modulosVisibles(perfil.rol, modulosActivos);
+  const visibles = modulosVisibles(perfil.roles ?? [perfil.rol], modulosActivos);
   const actual = visibles.find((m) => m.id === ruta) ?? visibles[0];
   const Pantalla = CARGADOS[actual.id];
 
@@ -55,7 +55,7 @@ export default function Shell() {
         </nav>
         <div className="mx-3 mb-4 rounded-xl bg-white/10 px-3.5 py-3 text-xs text-[#C9D6EF]">
           <b className="font-semibold text-white">{perfil.nombre}</b>
-          <div>{ROL_ETIQUETA[perfil.rol]}</div>
+          <div>{etiquetaRoles(perfil.roles ?? [perfil.rol])}</div>
         </div>
       </aside>
 

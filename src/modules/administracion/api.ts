@@ -8,6 +8,9 @@ interface ErrorDb {
 
 /** Convierte los errores de la base de datos en mensajes claros para la persona. */
 export function traducirError(e: ErrorDb): Error {
+  if (e.code === '23505' && /perfiles_usuario_unico/i.test(e.message)) return new Error('Ese usuario ya existe.');
+  if (e.code === '23505' && /^El usuario/.test(e.message)) return new Error(e.message);
+  if (e.code === '23514' && /administrador/i.test(e.message)) return new Error(e.message);
   if (e.code === '23505' && /matricula/i.test(e.message)) return new Error('Ya existe un estudiante con esa matrícula.');
   if (e.code === '23505' && /docentes_correo/i.test(e.message)) return new Error('Ya hay un docente con ese correo.');
   if (e.code === '23505' && /materias/i.test(e.message)) return new Error('Ya existe una materia con ese nombre.');

@@ -2,14 +2,16 @@ import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { entornoListo } from '../lib/env';
 import { Btn, Card } from '../ui';
 import { CargaGlobal, EnCarga } from '../ui/Carga';
+import CambiarClave from './CambiarClave';
 import Login from './Login';
 import Setup from './Setup';
 import Shell from './Shell';
 
 function Contenido() {
-  const { cargando, sesion, perfil, error, salir, recargar } = useAuth();
+  const { cargando, sesion, perfil, claveTemporal, error, salir, recargar } = useAuth();
   if (cargando) return <div className="p-8"><EnCarga /></div>;
   if (!sesion) return <Login />;
+  if (claveTemporal) return <CambiarClave />;
   if (!perfil) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">

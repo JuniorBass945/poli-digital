@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PageHeader, Tabs } from '../../ui';
+import Accesos from './Accesos';
 import Asignaciones from './Asignaciones';
 import Aulas from './Aulas';
 import Docentes from './Docentes';
@@ -26,6 +27,7 @@ export default function Administracion() {
           { id: 'aulas', etiqueta: 'Aulas' },
           { id: 'asignaciones', etiqueta: 'Asignaciones' },
           { id: 'tutores', etiqueta: 'Tutores' },
+          { id: 'accesos', etiqueta: 'Accesos' },
         ]}
       />
       {tab === 'estudiantes' && <Estudiantes />}
@@ -35,6 +37,7 @@ export default function Administracion() {
       {tab === 'aulas' && <Aulas />}
       {tab === 'asignaciones' && <Asignaciones />}
       {tab === 'tutores' && <Tutores />}
+      {tab === 'accesos' && <Accesos />}
     </>
   );
 }

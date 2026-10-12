@@ -1,6 +1,7 @@
-import { Card, Chip, PageHeader } from '../ui';
+import { useState } from 'react';
+import { Card, Chip, PageHeader, Tabs } from '../ui';
 import { useAuth } from '../auth/AuthProvider';
-import { ROL_ETIQUETA } from '../lib/roles';
+import { ROL_ETIQUETA, etiquetaRoles, rolesDe, type Rol } from '../lib/roles';
 import { modulosPendientes, modulosVisibles } from '../modules/registry';
 import InicioAdmin from './inicio/InicioAdmin';
 import InicioCoordinacion from './inicio/InicioCoordinacion';
@@ -10,23 +11,30 @@ import InicioGeneral from './inicio/InicioGeneral';
 import InicioOrientacion from './inicio/InicioOrientacion';
 
 // Pantalla de inicio: cada rol ve primero lo que le importa hoy.
+// Con varios roles, una pestaña por rol: cada una muestra la portada de ese rol.
 export default function Inicio() {
   const { perfil, modulosActivos } = useAuth();
+  const [elegido, setElegido] = useState<Rol | null>(null);
   if (!perfil) return null;
 
-  const activos = modulosVisibles(perfil.rol, modulosActivos).filter((m) => !m.siempre);
-  const pendientes = modulosPendientes(perfil.rol, modulosActivos);
+  const roles = rolesDe(perfil);
+  const rolActivo = elegido && roles.includes(elegido) ? elegido : roles[0];
+  const activos = modulosVisibles(roles, modulosActivos).filter((m) => !m.siempre);
+  const pendientes = modulosPendientes(roles, modulosActivos);
 
   return (
     <>
-      <PageHeader titulo={`Hola, ${perfil.nombre}`} desc={`${ROL_ETIQUETA[perfil.rol]} en ${perfil.centroNombre}`} />
+      <PageHeader titulo={`Hola, ${perfil.nombre}`} desc={`${etiquetaRoles(roles)} en ${perfil.centroNombre}`} />
+      {roles.length > 1 && (
+        <Tabs valor={rolActivo} onChange={(id) => setElegido(id as Rol)} tabs={roles.map((r) => ({ id: r, etiqueta: ROL_ETIQUETA[r] }))} />
+      )}
       <div className="grid gap-4">
-        {perfil.rol === 'direccion' && <InicioDireccion activos={modulosActivos} />}
-        {perfil.rol === 'coordinacion' && <InicioCoordinacion activos={modulosActivos} />}
-        {perfil.rol === 'docente' && <InicioDocente activos={modulosActivos} />}
-        {perfil.rol === 'admin' && <InicioAdmin />}
-        {perfil.rol === 'orientacion' && <InicioOrientacion activos={modulosActivos} />}
-        {perfil.rol === 'tutor' && <InicioGeneral />}
+        {rolActivo === 'direccion' && <InicioDireccion activos={modulosActivos} />}
+        {rolActivo === 'coordinacion' && <InicioCoordinacion activos={modulosActivos} />}
+        {rolActivo === 'docente' && <InicioDocente activos={modulosActivos} />}
+        {rolActivo === 'admin' && <InicioAdmin />}
+        {rolActivo === 'orientacion' && <InicioOrientacion activos={modulosActivos} />}
+        {rolActivo === 'tutor' && <InicioGeneral />}
 
         <Card className="p-5">
           <h2 className="text-base font-semibold">Módulos de tu centro</h2>

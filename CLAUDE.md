@@ -17,6 +17,9 @@ definido para el sistema ni dominio propio**.
   con cédula + código de consulta generado por el sistema (distinto de la matrícula, asociado al tutor, muestra a todos sus hijos).
   Es de solo lectura y se verifica en el servidor. Debe ser lo más fácil posible (muchos padres manejan poco la tecnología).
   **Pendiente: se retoma más adelante.** Sin decidir: si todos los tutores tienen cédula (pasaporte u otros documentos).
+- **Accesos del personal sin correo externo (estilo Active Directory):** la administración crea a cada persona con un **usuario único** (solo sirve para entrar;
+  la app muestra su **nombre**) y una **clave temporal generada por el sistema o escrita a mano por el admin** (opción "Escribirla yo"; la regla es la misma en `validarClaveTemporal` y en la función), que se muestra una sola vez, vence a los 7 días y obliga a crear una clave propia
+  en el primer ingreso. **Varios roles por persona**, con interruptores (paquetes de roles fijos); el Inicio muestra una pestaña por rol; el rol Docente se liga a un registro de docente.
 - **El costo de WhatsApp lo paga el centro aparte**, con su propia cuenta de Meta.
 - Aviso de ausencia: primero con enlace de WhatsApp manual (`wa.me`), luego envío automático por la API oficial.
 - **Evaluación por asignatura, mínimo de aprobación 70.** Evaluación continua con actividades (versión mínima en la demo).
@@ -70,6 +73,17 @@ definido para el sistema ni dominio propio**.
 - **Animación de carga global: generada y probada en el sandbox; falta que el usuario la aplique y confirme.** Barra superior y aviso "Cargando…" alimentados por `src/lib/actividad.ts`
   (el cliente de Supabase usa `fetchConActividad`) y `CargaGlobal` en `src/ui/Carga.tsx`; `EnCarga` y `Spinner` para los textos de carga. Guía `docs/R1-9_ANIMACION_DE_CARGA.md`
   (incluye el prompt opcional para cambiar los "Cargando…" sueltos de las tablas).
+- **Accesos de usuarios del personal: generado y probado en el sandbox; falta que el usuario lo aplique y confirme.** Migración `20261017000100_accesos.sql`
+  (tabla `perfil_roles`, columnas `usuario`, `debe_cambiar_clave`, `clave_vence` en `perfiles`, tabla secreta `acceso_secretos`, funciones `sugerir_usuario`, `listar_accesos`,
+  `validar_nuevo_acceso`, `registrar_acceso`, `validar_reinicio_acceso`, `registrar_reinicio_acceso`, `quitar_acceso`, `cambiar_roles_acceso`, `renombrar_acceso`,
+  `mi_estado_acceso`, `marcar_clave_cambiada`), pruebas `supabase/tests/accesos.sql` (75), **Edge Function** `supabase/functions/accesos/index.ts` (usa `service_role`, que Supabase le da sola; el usuario la
+  despliega con `npx supabase functions deploy accesos`), guía `docs/R1-10_ACCESOS.md`. Pestaña **Accesos** en Gestión de datos (`Accesos.tsx`, `apiAccesos.ts`, `reglasAcceso.ts`),
+  pantalla `src/app/CambiarClave.tsx`, login por usuario (`src/lib/acceso.ts`: correo interno `usuario@poli.test`, nunca se envía nada).
+  Diseño: `app.centro_actual()/tiene_rol()/rol_actual()` leen `perfil_roles` y devuelven nada mientras `debe_cambiar_clave` (la base niega todo hasta que la clave cambie de verdad:
+  `marcar_clave_cambiada` compara la huella de la contraseña). `app.rol_actual()` = rol de mayor alcance (admin, coordinación > docente > dirección > orientación > tutor); el frontend usa el mismo
+  orden en `perfil.rol` (y `perfil.roles` tiene todos). Guardias: nunca queda un centro sin administrador; nadie se quita su propio rol de admin ni su acceso; los tutores no tienen acceso.
+  `perfiles.rol` se conserva (rol principal) y un trigger lo copia a `perfil_roles`, así el seed y las pruebas anteriores siguen igual. Los usuarios de demostración siguen entrando con correo.
+  **No reemplaza `administracion/index.tsx`** (el usuario lo edita a mano): hay que agregar la pestaña Accesos (ver la guía).
 - Usuarios de prueba (contraseña de desarrollo definida por el usuario): `admin@`, `direccion@`, `coordinacion@`, `docente@`, `orientacion@`, `tutor@` + `polidemo.test`.
   Hay que borrarlos o cambiar sus contraseñas antes de cargar datos reales, y separar un proyecto de Supabase de producción.
 - Registro abierto de usuarios desactivado en Supabase Auth.
@@ -77,8 +91,8 @@ definido para el sistema ni dominio propio**.
 
 ## Pendiente, en el orden previsto
 1. Cuando llegue el Excel oficial del centro, adaptar la importación. Confirmar con el centro los supuestos de asistencia, avisos e Inicio.
-2. Función del servidor para invitar usuarios del personal (necesita correo propio y dominio).
-3. Despliegue con datos reales y capacitación, que cierran R1 (proyecto de producción separado, usuarios reales, función de invitar).
+2. (Hecho en el sandbox) Accesos del personal por usuario y clave temporal; ya no depende de correo ni dominio. Queda decidir si algún día se agrega "olvidé mi clave" automático (hoy la administración restablece).
+3. Despliegue con datos reales y capacitación, que cierran R1 (proyecto de producción separado, usuarios reales creados desde Accesos, guías por rol, lista de verificación de salida).
 4. R2 WhatsApp automático (la verificación de Meta tarda de 2 a 7 días: tramitarla pronto). R3 calificaciones y boletines con QR.
    R4 actividades. R5 orientación. R6 portal público. R7 estadísticas y planificación. R8 estabilización.
 - Por confirmar con el centro: nombre y dominio, Excel real, reglas de evaluación y pendientes, planificación docente, tutores sin cédula.
@@ -103,6 +117,8 @@ definido para el sistema ni dominio propio**.
 - Identificadores en español sin tildes (`anios_escolares`, `estudiante_tutor`); textos de interfaz en español con tildes.
 - **Rendimiento de RLS:** en toda política, `app.centro_actual()`, `app.tiene_rol(...)` y `auth.uid()` van envueltas en `(select ...)` para evaluarse una vez por consulta, no por fila. `supabase/tests/rendimiento.sql` lo verifica.
 - **Carga:** toda consulta pasa por el cliente de Supabase, que activa la animación global; no hace falta agregar nada por módulo. Para placeholders de texto usar `EnCarga` (`src/ui/Carga.tsx`).
+- **Roles:** nunca compares un solo rol del perfil para dar permisos nuevos; en la base usa `app.tiene_rol(...)` (revisa todos los roles) y en el frontend `perfil.roles`/`tieneRol`. `perfil.rol` es el de mayor alcance.
+  Los archivos de la guía de entrega que el usuario edita a mano (`administracion/index.tsx`) no se reemplazan en los zips: se dan las líneas a agregar.
 - Nombres de archivo: nunca dos archivos de la misma carpeta que solo difieran en mayúsculas (Windows los confunde); `src/estructura-archivos.test.ts` lo verifica.
 - Nunca poner la clave `service_role` ni la contraseña de la base de datos en el frontend, el repositorio o el chat. La clave `anon` es pública por diseño.
 - Cada cambio de comportamiento se documenta en `docs/` y se anota el tiempo real en `docs/REGISTRO_HORAS.md` o en el Excel del plan.
